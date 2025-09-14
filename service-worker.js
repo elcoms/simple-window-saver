@@ -116,27 +116,20 @@ async function syncNamesToWindows() {
 // match those of the saved window, we consider them equal
 // even if the new window has more tabs
 function windowsAreEqual(browserWindow, savedWindow) {
-  console.log("are windows equal?");
   if (browserWindow.incognito) {
-    console.log('incognito');
     return false;
   }
   if (!browserWindow.tabs || !savedWindow.tabs) {
-    console.log("tabs");
     return false;
   }
   if (browserWindow.tabs.length < savedWindow.tabs.length) {
-    console.log("tabs length");
     return false;
   }
   for (var i in savedWindow.tabs) {
-    console.log("bw tab: " + browserWindow.tabs[i].url);
-    console.log("sw tab: " + savedWindow.tabs[i].url);
     if (browserWindow.tabs[i].url != savedWindow.tabs[i].url) {
       return false;
     }
   }
-  console.log("yes");
   return true;
 }
 
@@ -154,7 +147,7 @@ async function saveWindow(browserWindow, displayName) {
   const newWindow = new SavedWindow(browserWindow);
   savedWindows[displayName] = newWindow;
   savedWindowNames.push(displayName);
-  markWindowAsOpen(browserWindow, newWindow);
+  markWindowAsOpen(browserWindow, displayName);
 
   await setAllStorage();
   return browserWindow;

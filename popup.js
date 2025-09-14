@@ -36,6 +36,8 @@ async function refresh() {
   // display form if current window is not saved or in incognito
   chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
     const name = state.windowIdToName[currentWindow.id];
+
+    formEl.style.display = "none";
     if (!name) {
       if (window.incognito)
         $('incognitoMsg').style.display = "block";
