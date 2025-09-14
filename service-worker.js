@@ -21,7 +21,11 @@ let windowIdToName = {}; // open browser window id -> savedWindow name
 // used to match new windows to saved windows that are still closed
 let closedWindows = {}; // name -> savedWindow for closed windows
 
-
+// Custom SavedWindow object to save only what we need
+function SavedWindow(browserWindow) {
+  this.tabs = (browserWindow.tabs || []).map(t => ({ url: t.url, pinned: !!t.pinned, title: t.title || '', windowId: t.windowId })),
+  this.focused = browserWindow.focused
+};
 
 // helper to read/write chrome.storage.local
 async function getAllStorage() {
@@ -72,8 +76,8 @@ async function initialize() {
     for (const bw of browserWindows) {
       console.log("bw check");
       if (windowsAreEqual(bw, savedWindow)) {
-        markWindowAsOpen(bw, savedWindow);
-        updateSavedWindow(bw, name);
+        markWindowAsOpen(bw, name);
+        savedWindow = new SavedWindow(bw);
         break; // ignore duplicate windows with the same tabs
       }
     }
@@ -95,11 +99,11 @@ async function syncNamesToWindows() {
 
     // Clean up orphaned names with no windows, else mark as saved window
     if (!savedWindow) {
-      console.error("Window " + name + " was not found in localStorage.");
       savedWindowNames.splice(savedWindowNames.indexOf(name), 1);
     }
     else {
       updatedSavedWindows[name] = savedWindow;
+      delete savedWindows[name];
     }
   }
 
@@ -136,43 +140,24 @@ function windowsAreEqual(browserWindow, savedWindow) {
   return true;
 }
 
-async function markWindowAsOpen(browserWindow, savedWindow) {
-  delete closedWindows[savedWindow.name];
-  windowIdToName[browserWindow.id] = savedWindow.name;
-  savedWindow.id = browserWindow.id;
-  console.log("mark: " +savedWindow.name+ ":"+browserWindow.id)
+async function markWindowAsOpen(browserWindow, displayName) {
+  delete closedWindows[displayName];
+  windowIdToName[browserWindow.id] = displayName;
 
   // updateBadgeForWindow(savedWindow.id);
 }
 
-// only save what we need
-function sanitizeSavedWindow(browserWindow) {
-  const toStore = {
-    tabs: (browserWindow.tabs || []).map(t => ({ url: t.url, pinned: !!t.pinned, title: t.title || '' , windowId: t.windowId})),
-    focused: !!browserWindow.focused
-  };
-  return toStore;
-}
-
 async function saveWindow(browserWindow, displayName) {
-  console.log(browserWindow);
   // we don't accept empty or duplicate names
-  if (displayName == "") return;
+  if (displayName == "" || savedWindows[displayName]) return;
   
-  const toStore = sanitizeSavedWindow(browserWindow, displayName);
-  savedWindows[displayName] = toStore;
+  const newWindow = new SavedWindow(browserWindow);
+  savedWindows[displayName] = newWindow;
   savedWindowNames.push(displayName);
+  markWindowAsOpen(browserWindow, newWindow);
 
   await setAllStorage();
   return browserWindow;
-}
-
-// update if it exists
-async function updateSavedWindow(browserWindow, displayName) {
-  const window = savedWindows[displayName];
-  const toStore = sanitizeSavedWindow(browserWindow, displayName);
-  if(window)
-    savedWindows[displayName] = toStore;
 }
 
 async function deleteSavedWindow(name) {
@@ -238,7 +223,7 @@ async function onTabChanged(tabId, windowId) {
         if (windowsAreEqual(browserWindow, savedWindow)) {
           var name = savedWindow.name;
           savedWindows[name] = browserWindow; 
-          markWindowAsOpen(browserWindow);
+          markWindowAsOpen(browserWindow, name);
         }
       }
     }
