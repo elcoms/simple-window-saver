@@ -6,7 +6,7 @@ function $(id){ return document.getElementById(id); }
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-  console.log("init");
+  console.log("popup init");
   // initialize variables we'll need
   savedWindowListEl = $('savedWindowList');
   formEl = $('form');
@@ -34,17 +34,19 @@ async function refresh() {
   }
   
   // display form if current window is not saved or in incognito
-  const window = getCurrentWindow();
-  const name = state.windowIdToName[window.id];
-  if (!name)
-    if (window.incognito)
-      $('incognitoMsg').style.display = "block";
-    else {
-      nameInput.value = state.DEFAULT_NAME;
-      formEl.style.display = "block";
-      nameInput.focus();
-      nameInput.select();
+  chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
+    const name = state.windowIdToName[currentWindow.id];
+    if (!name) {
+      if (window.incognito)
+        $('incognitoMsg').style.display = "block";
+      else {
+        nameInput.value = state.DEFAULT_NAME;
+        formEl.style.display = "block";
+        nameInput.focus();
+        nameInput.select();
+      }
     }
+  });
 }
 
 async function getState() {
@@ -53,23 +55,18 @@ async function getState() {
   });
 }
 
-// gather current window via chrome.windows.getCurrent
-async function getCurrentWindow() {
-  return new Promise((resolve) => {
-    chrome.windows.getCurrent({populate:true});
-  });
-}
-
 async function saveWindowHandler(e) {
   e.preventDefault();
   const displayName = nameInput.value || "";
-  const currentWindow = getCurrentWindow();
-  console.log("saveWindowHandler");
-  const msg = {type:'saveWindow', browserWindow: currentWindow, displayName};
-  chrome.runtime.sendMessage(msg, (resp) => {
-    // refresh UI
-    refresh();
-    nameInput.value = "";
+  
+  // gather current window via chrome.windows.getCurrent
+  chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
+    const msg = { type: 'saveWindow', browserWindow: currentWindow, displayName };
+    chrome.runtime.sendMessage(msg, (resp) => {
+      // refresh UI
+      refresh();
+      nameInput.value = "";
+    });
   });
 }
 
