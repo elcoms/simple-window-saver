@@ -43,7 +43,7 @@ var isWindowClosing = new Object();
 
 
 // Google Analytics
-var _gaq = _gaq || [];
+/* var _gaq = _gaq || [];
 _gaq.push(['_setAccount', 'UA-18459718-1']);
 _gaq.push(['_setCustomVar', 1, 'windowCount', savedWindowNames.length, 1]);
 (function() {
@@ -52,7 +52,7 @@ _gaq.push(['_setCustomVar', 1, 'windowCount', savedWindowNames.length, 1]);
   ga.async = true;
   ga.src = 'https://www.google-analytics.com/ga.js';
   var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-})();
+})(); */
 
 
 // populate savedWindows from local storage
@@ -60,7 +60,7 @@ _gaq.push(['_setCustomVar', 1, 'windowCount', savedWindowNames.length, 1]);
 chrome.windows.getAll({populate:true}, function(browserWindows) {
   for (var i in savedWindowNames) {
     var name = savedWindowNames[i];
-    var savedWindow  = restoreFromLocalStorage(name);
+    var savedWindow = restoreFromLocalStorage(name);
     if (!savedWindow) {
       console.error("Window " + name + " was not found in localStorage.");
       savedWindowNames.splice(savedWindowNames.indexOf(name), 1);
