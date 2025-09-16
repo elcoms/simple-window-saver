@@ -23,8 +23,9 @@ let closedWindows = {}; // name -> savedWindow for closed windows
 
 // Custom SavedWindow object to save only what we need
 function SavedWindow(browserWindow) {
-  this.tabs = (browserWindow.tabs || []).map(t => ({ url: t.url, pinned: !!t.pinned, title: t.title || '', windowId: t.windowId })),
-  this.focused = browserWindow.focused
+  this.id = browserWindow.id;
+  this.focused = browserWindow.focused;
+  this.tabs = (browserWindow.tabs || []).map(t => ({ url: t.url, pinned: !!t.pinned, title: t.title || '', windowId: t.windowId }));
 };
 
 // helper to read/write chrome.storage.local
@@ -74,7 +75,6 @@ async function initialize() {
 
     // let's check if it's one of the open windows and map their IDs to their names
     for (const bw of browserWindows) {
-      console.log("bw check");
       if (windowsAreEqual(bw, savedWindow)) {
         markWindowAsOpen(bw, name);
         savedWindow = new SavedWindow(bw);
@@ -122,7 +122,7 @@ function windowsAreEqual(browserWindow, savedWindow) {
   if (!browserWindow.tabs || !savedWindow.tabs) {
     return false;
   }
-  if (browserWindow.tabs.length < savedWindow.tabs.length) {
+  if (browserWindow.tabs.length < savedWindow.tabs.length || savedWindow.tabs.length == 0) {
     return false;
   }
   for (var i in savedWindow.tabs) {
@@ -154,14 +154,17 @@ async function saveWindow(browserWindow, displayName) {
 }
 
 async function deleteSavedWindow(name) {
-  if (savedWindows[name]) delete savedWindows[name];
-  const idx = savedWindowNames.indexOf(name);
-  if (idx >= 0) savedWindowNames.splice(idx,1);
+  if (savedWindows[name]) delete savedWindows[name]; {
+    const idx = savedWindowNames.indexOf(name);
+    if (idx >= 0) savedWindowNames.splice(idx, 1);
+  }
+    
   // Also remove from windowIdToName and closedWindows if present
   for (const wid in windowIdToName) {
     if (windowIdToName[wid] === name) delete windowIdToName[wid];
   }
   if (closedWindows[name]) delete closedWindows[name];
+
   await setAllStorage();
   return true;
 }
@@ -174,6 +177,7 @@ async function openWindow(name) {
   const win = await chrome.windows.create(createData);
   saved.id = win.id;
   windowIdToName[win.id] = name;
+
   // move name to end
   const i = savedWindowNames.indexOf(name);
   if (i>=0) {
@@ -181,6 +185,7 @@ async function openWindow(name) {
     savedWindowNames.push(name);
   }
   await setAllStorage();
+
   // try pinning
   for (let i=0;i<saved.tabs.length && i<win.tabs.length;i++){
     if (saved.tabs[i].pinned) {
@@ -276,7 +281,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             bw = await chrome.windows.getCurrent({populate:true});
           } catch(e){}
         }
-        const saved = await saveWindow(bw, msg.displayName || "");
+        const saved = await saveWindow(bw, msg.name || "");
         sendResponse({saved});
         return;
       } else if (msg && msg.type === 'deleteSavedWindow') {

@@ -16,7 +16,7 @@ function init() {
   // initialize links
   formEl.addEventListener('submit', saveWindowHandler);
 
-  // populate list of windows
+  // refresh UI
   refresh();
 }
 
@@ -24,21 +24,13 @@ async function refresh() {
   const state = await getState();
   const savedWindows = state.savedWindows || {};
   const savedWindowNames = state.savedWindowNames || [];
-  savedWindowListEl.innerHTML = '';
-  for (let i = savedWindowNames.length - 1; i >= 0; i--) {
-    const name = savedWindowNames[i];
-    const savedWindow = savedWindows[name];
-    if (!savedWindow) continue;
-
-    savedWindowListEl.appendChild(makeListItem(name, savedWindow));
-  }
   
-  // display form if current window is not saved or in incognito
+  
   chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
-    const name = state.windowIdToName[currentWindow.id];
-
-    formEl.style.display = "none";
-    if (!name) {
+    const currentWindowName = state.windowIdToName[currentWindow.id];
+    
+    // display form if current window is not saved or in incognito
+    if (!currentWindowName) {
       if (window.incognito)
         $('incognitoMsg').style.display = "block";
       else {
@@ -47,6 +39,18 @@ async function refresh() {
         nameInput.focus();
         nameInput.select();
       }
+    }
+    else {
+      formEl.style.display = "none";
+    }
+
+    // populate list of windows
+    savedWindowListEl.innerHTML = '';
+    for (let i = savedWindowNames.length - 1; i >= 0; i--) {
+      const name = savedWindowNames[i];
+      const savedWindow = savedWindows[name];
+      if (!savedWindow) continue;
+      appendWindowToList(name, savedWindow, currentWindowName);
     }
   });
 }
@@ -63,7 +67,7 @@ async function saveWindowHandler(e) {
   
   // gather current window via chrome.windows.getCurrent
   chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
-    const msg = { type: 'saveWindow', browserWindow: currentWindow, displayName };
+    const msg = { type: 'saveWindow', browserWindow: currentWindow, name: displayName };
     chrome.runtime.sendMessage(msg, (resp) => {
       // refresh UI
       refresh();
@@ -72,32 +76,61 @@ async function saveWindowHandler(e) {
   });
 }
 
-function makeListItem(name, saved) {
-  const li = document.createElement('li');
-  li.className = 'savedWindow';
-  li.dataset.name = name;
-  const title = document.createElement('span');
-  title.className = 'title';
-  title.textContent = saved.displayName || name;
-  li.appendChild(title);
+function appendWindowToList(displayName, savedWindow, currentWindowName) {
+  const li = template.cloneNode(true);
+  li.removeAttribute(("id"));
+  li.setAttribute("data-name", displayName);
+  
+  li.querySelector(".delete").addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    chrome.runtime.sendMessage({ type: 'deleteSavedWindow', name: displayName }, (resp) => {  });
 
-  const openBtn = document.createElement('button');
-  openBtn.textContent = 'Open';
-  openBtn.addEventListener('click', () => {
-    chrome.runtime.sendMessage({type:'openWindow', name}, (resp) => { refresh(); });
+    li.className = "deleted";
+    setText(li, "<b>" + displayName + "<\/b> was deleted.");
+
+    // show the form if current window
+    if (displayName == currentWindowName) {
+      nameInput.value = state.DEFAULT_NAME;
+      formEl.style.display = "block";
+      nameInput.focus();
+      nameInput.select();
+    }
   });
-  li.appendChild(openBtn);
 
-  const delBtn = document.createElement('button');
-  delBtn.textContent = 'Delete';
-  delBtn.addEventListener('click', () => {
-    chrome.runtime.sendMessage({type:'deleteSavedWindow', name}, (resp) => { refresh(); });
-  });
-  li.appendChild(delBtn);
+  // TODO: undo function
+  /* li.querySelector(".undo").addEventListener('click', () => {
+  chrome.runtime.sendMessage({ type: 'undoSavedWindow' }, (resp) => { refresh(); });
+}); */
+  
+  var count = savedWindow.tabs.length;
+  var text = displayName + " (" + count + ")";
+  if (displayName == currentWindowName) {
+    li.className = "current";
+    text = "This is <b>" + text + "<\/b>.";
+  } else if (savedWindow.id) {
+    li.className = "open";
+    li.addEventListener('click', (e) => {
+      e.preventDefault();
 
-  return li;
+      chrome.windows.update(savedWindow.id, {focused: true});
+      // backgroundPage._gaq.push(['_trackEvent', 'popup', 'focusWindow']);
+    });
+  } else {
+    li.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ type: 'openWindow', name: displayName }, (resp) => { refresh(); });
+    });
+  }
+
+  setText(li, text);
+  savedWindowListEl.insertBefore(li, savedWindowListEl.firstChild);
 }
 
+// given a list element, sets the text
+function setText(element, text) {
+  element.childNodes[1].innerHTML = text;
+}
 
 
 
