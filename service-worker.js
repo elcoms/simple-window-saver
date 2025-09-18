@@ -26,7 +26,6 @@ function SavedWindow(browserWindow) {
   this.id = browserWindow.id;
   this.focused = browserWindow.focused;
   this.tabs = (browserWindow.tabs || []).map(t => ({ url: t.url, pinned: !!t.pinned, title: t.title || '', windowId: t.windowId }));
-  console.log(browserWindow.tabs);
 };
 
 // helper to read/write chrome.storage.local
@@ -171,28 +170,38 @@ async function deleteSavedWindow(name) {
 }
 
 async function openWindow(name) {
+
+  // if the window was opened from a new tab, close the new tab
+  await chrome.tabs.query({ active: true, lastFocusedWindow: true, url: "chrome://newtab/" }, function (tab) {
+    if (tab[0])
+      chrome.tabs.remove(tab[0].id);
+  });
+  
+  // compile the raw list of urls
   const saved = savedWindows[name];
   if (!saved) throw new Error("Window not found: " + name);
   const urls = saved.tabs.map(t => t.url || 'about:blank');
+
+  // create a window and open the tabs in it.
   const createData = { url: urls };
   const win = await chrome.windows.create(createData);
   saved.id = win.id;
   windowIdToName[win.id] = name;
-
-  // move name to end
-  const i = savedWindowNames.indexOf(name);
-  if (i>=0) {
-    savedWindowNames.splice(i,1);
-    savedWindowNames.push(name);
-  }
-  await setAllStorage();
+  markWindowAsOpen(win, name);
 
   // try pinning
-  for (let i=0;i<saved.tabs.length && i<win.tabs.length;i++){
+  for (let i = 0; i < saved.tabs.length && i < win.tabs.length; i++) {
     if (saved.tabs[i].pinned) {
-      try { chrome.tabs.update(win.tabs[i].id, {pinned: true}); } catch(e){}
+      try { chrome.tabs.update(win.tabs[i].id, { pinned: true }); } catch (e) { }
     }
   }
+  
+  // move the window to the end of the list (so it appears at the top of the popup)
+  savedWindowNames.splice(savedWindowNames.indexOf(name), 1);
+  savedWindowNames[savedWindowNames.length] = name;
+  await setAllStorage();
+
+  
   return {saved, win};
 }
 
@@ -211,17 +220,14 @@ async function onWindowRemoved(windowId) {
 // updates a window in response to a tab event
 async function onTabChanged(tabId, windowId) {
   chrome.windows.get(windowId, { populate: true }, function(browserWindow) {
-    console.log(browserWindow);
     // if the window is saved, we update it
     if (windowIdToName[windowId]) {
       var name = windowIdToName[windowId];
       savedWindows[name] = new SavedWindow(browserWindow);
-      console.log("window saved");
     } else {
       // otherwise we double check that it's not saved
       for (let i in closedWindows) {
         var savedWindow = closedWindows[i];
-        console.log("double check");
         if (windowsAreEqual(browserWindow, savedWindow)) {
           var name = savedWindow.name;
           savedWindows[name] = new SavedWindow(browserWindow); 
@@ -239,7 +245,6 @@ async function onTabChanged(tabId, windowId) {
 
 // When tabs are updated or created/moved, keep savedWindows in sync if they correspond
 async function onTabUpdated(tabId, changeInfo, tab) {
-  console.log("Tab updated: " + tab.windowId);
   onTabChanged(tabId, tab.windowId); 
 }
 
