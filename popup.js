@@ -5,7 +5,7 @@ let undo = {};
 function $(id){ return document.getElementById(id); }
 document.addEventListener('DOMContentLoaded', init);
 
-function init() {
+async function init() {
   console.log("popup init");
   // initialize variables we'll need
   savedWindowListEl = $('savedWindowList');
@@ -50,7 +50,7 @@ async function refresh() {
       const name = savedWindowNames[i];
       const savedWindow = savedWindows[name];
       if (!savedWindow) continue;
-      appendWindowToList(name, savedWindow, currentWindowName);
+      appendWindowToList(name, currentWindowName);
     }
   });
 }
@@ -76,7 +76,12 @@ async function saveWindowHandler(e) {
   });
 }
 
-function appendWindowToList(displayName, savedWindow, currentWindowName) {
+async function appendWindowToList(displayName, currentWindowName) {
+  // get state again in case it got updated
+  const state = await getState();
+  const savedWindows = state.savedWindows || {};
+
+const savedWindow = savedWindows[displayName];
   const li = template.cloneNode(true);
   li.removeAttribute(("id"));
   li.setAttribute("data-name", displayName);
