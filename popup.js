@@ -1,7 +1,7 @@
 // Popup rewritten to use chrome.runtime messaging (MV3-compatible)
 
 let savedWindowListEl, formEl, nameInput, template;
-let undo = {};
+// let undoInfo = {};
 function $(id){ return document.getElementById(id); }
 document.addEventListener('DOMContentLoaded', init);
 
@@ -24,8 +24,7 @@ async function refresh() {
   const state = await getState();
   const savedWindows = state.savedWindows || {};
   const savedWindowNames = state.savedWindowNames || [];
-  
-  
+
   chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
     const currentWindowName = state.windowIdToName[currentWindow.id];
     
@@ -81,17 +80,23 @@ async function appendWindowToList(displayName, currentWindowName) {
   const state = await getState();
   const savedWindows = state.savedWindows || {};
 
-const savedWindow = savedWindows[displayName];
+  const savedWindow = savedWindows[displayName];
   const li = template.cloneNode(true);
   li.removeAttribute(("id"));
   li.setAttribute("data-name", displayName);
   
+  var undoInfo = {};
   li.querySelector(".delete").addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     
     chrome.runtime.sendMessage({ type: 'deleteSavedWindow', name: displayName }, (resp) => {  });
 
+    undoInfo = {
+      class: li.className,
+      text: getText(li)
+    };
+    
     li.className = "deleted";
     setText(li, "<b>" + displayName + "<\/b> was deleted.");
 
@@ -104,17 +109,42 @@ const savedWindow = savedWindows[displayName];
     }
   });
 
-  // TODO: undo function
-  /* li.querySelector(".undo").addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'undoSavedWindow' }, (resp) => { refresh(); });
-}); */
+  li.querySelector(".undo").addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    await chrome.runtime.sendMessage({ type: 'undoSavedWindow', name: displayName }, async (resp) => { 
+      if (resp) {
+        const state = await getState();
+
+        chrome.windows.getCurrent({ populate: true }, async (currentWindow) => {
+          const currentWindowName = state.windowIdToName[currentWindow.id];
+          
+          // display form and update list item if current window is not saved and opened
+          if (!currentWindowName) {
+            nameInput.value = state.DEFAULT_NAME;
+            formEl.style.display = "block";
+            nameInput.focus();
+            nameInput.select();
+          } else formEl.style.display = "none";
+        });
+        
+        // undo UI
+        li.className = undoInfo.class;
+        setText(li, undoInfo.text);
+      }
+    });
+});
   
   var count = savedWindow.tabs.length;
   var text = displayName + " (" + count + ")";
+  // current - not clickable
   if (displayName == currentWindowName) {
     li.className = "current";
     text = "This is <b>" + text + "<\/b>.";
-  } else if (savedWindow.id) {
+  } 
+  // closed saved window - open
+  else if (savedWindow.id) {
     li.className = "open";
     li.addEventListener('click', (e) => {
       e.preventDefault();
@@ -122,7 +152,9 @@ const savedWindow = savedWindows[displayName];
       chrome.windows.update(savedWindow.id, {focused: true});
       // backgroundPage._gaq.push(['_trackEvent', 'popup', 'focusWindow']);
     });
-  } else {
+  } 
+  // opened saved window - focus
+  else {
     li.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'openWindow', name: displayName }, (resp) => { refresh(); });
     });
@@ -135,6 +167,11 @@ const savedWindow = savedWindows[displayName];
 // given a list element, sets the text
 function setText(element, text) {
   element.childNodes[1].innerHTML = text;
+}
+
+// given a list element, gets the text
+function getText(element) {
+  return element.childNodes[1].innerHTML;
 }
 
 

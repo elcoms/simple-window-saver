@@ -21,6 +21,9 @@ let windowIdToName = {}; // open browser window id -> savedWindow name
 // used to match new windows to saved windows that are still closed
 let closedWindows = {}; // name -> savedWindow for closed windows
 
+// Saved Windows that got deleted this session
+let undoWindows = new Object();
+;
 // Custom SavedWindow object to save only what we need
 function SavedWindow(browserWindow) {
   this.id = browserWindow.id;
@@ -72,6 +75,9 @@ async function initialize() {
   for (let i in savedWindowNames) {
     let name = savedWindowNames[i];
     let savedWindow = savedWindows[name];
+    
+    // all windows start as closed until verified
+    closedWindows[name] = savedWindow;
 
     // let's check if it's one of the open windows and map their IDs to their names
     for (const bw of browserWindows) {
@@ -143,7 +149,7 @@ async function markWindowAsOpen(browserWindow, displayName) {
 async function saveWindow(browserWindow, displayName) {
   // we don't accept empty or duplicate names
   if (displayName == "" || savedWindows[displayName]) return;
-  
+
   const newWindow = new SavedWindow(browserWindow);
   savedWindows[displayName] = newWindow;
   savedWindowNames.push(displayName);
@@ -154,10 +160,17 @@ async function saveWindow(browserWindow, displayName) {
 }
 
 async function deleteSavedWindow(name) {
-  if (savedWindows[name]) delete savedWindows[name]; {
-    const idx = savedWindowNames.indexOf(name);
-    if (idx >= 0) savedWindowNames.splice(idx, 1);
+  // save info for undo
+  const idx = savedWindowNames.indexOf(name);
+  if (savedWindows[name]) {
+    undoWindows[name] = { 
+      savedWindow: savedWindows[name],
+      index: idx,
+      closedWindow: closedWindows[name]
+    };
+    delete savedWindows[name]; 
   }
+  if (idx >= 0) savedWindowNames.splice(idx, 1);
     
   // Also remove from windowIdToName and closedWindows if present
   for (const wid in windowIdToName) {
@@ -165,6 +178,30 @@ async function deleteSavedWindow(name) {
   }
   if (closedWindows[name]) delete closedWindows[name];
 
+  await setAllStorage();
+  return true;
+}
+
+// undo a deletion
+// called when the user presse the undo button
+async function undoDeleteSavedWindow(name) {
+  var savedWindow = undoWindows[name].savedWindow;
+  const index = undoWindows[name].index;
+
+  // resave window in the same index
+  savedWindows[name] = savedWindow;
+  savedWindowNames.splice(index, 0, name);
+
+  // mark it as closed or open
+  if (undoWindows.closedWindow) { closedWindows[name] = savedWindow; console.log("Closed");}
+  else markWindowAsOpen(savedWindow, name);
+
+  
+  // clean up
+  delete undoWindows[name];
+  
+  // backgroundPage._gaq.push(['_trackEvent', 'popup', 'undoDeleteWindow', 'Value is tab count.', savedWindow.tabs.length]);
+  
   await setAllStorage();
   return true;
 }
@@ -297,6 +334,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } else if (msg && msg.type === 'deleteSavedWindow') {
         await deleteSavedWindow(msg.name);
         sendResponse({ok:true});
+        return;
+      } else if (msg && msg.type === 'undoSavedWindow') {
+        console.log("undo msg");
+        const res = await undoDeleteSavedWindow(msg.name);
+        sendResponse(res);
         return;
       } else if (msg && msg.type === 'openWindow') {
         const res = await openWindow(msg.name);
