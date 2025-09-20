@@ -273,7 +273,15 @@ async function onTabChanged(tabId, windowId) {
         }
       }
     }
+
+    chrome.tabs.query( {active: true, lastFocusedWindow: true }, (tab) => {
+      if (tabId || tab[0].id != tabId) {
+        const count = savedWindows[name].tabs.length.toString();
+        updateBadgeForTab(tab[0].id, count);
+      }
+    });
   });
+
 
   await setAllStorage();
 }
@@ -392,7 +400,6 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 });
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
-  console.log("Activated");
   onTabActivated(activeInfo.tabId, activeInfo.windowId);
 });
 
