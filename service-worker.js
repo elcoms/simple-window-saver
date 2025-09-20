@@ -302,8 +302,10 @@ async function onWindowFocusChanged(windowId) {
 
 async function onTabActivated(tabId, windowId) {
   const name = windowIdToName[windowId];
-  const count = savedWindows[name].tabs.length.toString();
-  updateBadgeForTab(tabId, count);
+  if (name) {
+    const count = savedWindows[name].tabs.length.toString();
+    updateBadgeForTab(tabId, count);
+  }
 }
 
 // Simple badge update stub (MV3 badges are only on action)
