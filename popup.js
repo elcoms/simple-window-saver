@@ -150,7 +150,6 @@ async function appendWindowToList(displayName, currentWindowName) {
       e.preventDefault();
 
       chrome.windows.update(savedWindow.id, {focused: true});
-      // backgroundPage._gaq.push(['_trackEvent', 'popup', 'focusWindow']);
     });
   } 
   // opened saved window - focus

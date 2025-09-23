@@ -34,7 +34,7 @@ let undoWindows = new Object();
 function SavedWindow(browserWindow) {
   this.id = browserWindow.id;
   this.focused = browserWindow.focused;
-  this.tabs = (browserWindow.tabs || []).map(t => ({ url: t.url, pinned: !!t.pinned, title: t.title || '', windowId: t.windowId }));
+  this.tabs = (browserWindow.tabs || []).map(t => ({ id: t.id, url: t.url, pinned: !!t.pinned, title: t.title || '', windowId: t.windowId }));
 };
 
 // helper to read/write chrome.storage.local
@@ -57,7 +57,9 @@ function SavedWindow(browserWindow) {
   });
 }
 
-
+function getSavedWindowFromId(id) {
+  return savedWindows[windowIdToName[id]];
+}
 
 // Initialize state from storage and current windows
 async function initialize() {
@@ -179,11 +181,27 @@ async function deleteSavedWindow(name) {
     };
     delete savedWindows[name]; 
   }
-  if (idx >= 0) savedWindowNames.splice(idx, 1);
-    
+
+  if (idx >= 0) savedWindowNames.splice(idx, 1);  
+
+  
+  // console.log(bw);
   // Also remove from windowIdToName and closedWindows if present
   for (const wid in windowIdToName) {
-    if (windowIdToName[wid] === name) delete windowIdToName[wid];
+    if (windowIdToName[wid] === name) {
+      // get browserwindow, delete from windowIdToName then update badge
+      try {
+        const bw = await chrome.windows.get(+wid, {
+          populate: true,
+          windowTypes: ['normal']
+        });
+        updateBadgeForWindow(bw);
+      } catch (error) {
+        console.error(error);
+      }
+      delete windowIdToName[wid];
+      break;
+    }
   }
   if (closedWindows[name]) delete closedWindows[name];
 
@@ -208,8 +226,6 @@ async function undoDeleteSavedWindow(name) {
   
   // clean up
   delete undoWindows[name];
-  
-  // backgroundPage._gaq.push(['_trackEvent', 'popup', 'undoDeleteWindow', 'Value is tab count.', savedWindow.tabs.length]);
   
   await setAllStorage();
   return true;
@@ -298,6 +314,60 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
   })();
   return true;
+});
+
+// Simple badge update stub (MV3 badges are only on action)
+async function updateBadgeForTab(tabId, count) {
+  try {
+    // check if window is saved before updating badge
+    if (count != "") {
+      const tab = await chrome.tabs.get(tabId);
+      if (!windowIdToName[tab.windowId]) count = "";
+    }
+    chrome.action.setBadgeText({ tabId, text: count });
+    chrome.action.setBadgeBackgroundColor({ color: 'green' });
+  } catch (e) { console.log(e); }
+}
+
+async function updateBadgeForWindow(browserWindow) {
+  if (!browserWindow || !browserWindow.id) return;
+  const count = windowIdToName[browserWindow.id] ? browserWindow.tabs.length.toString() : "";
+  for (let i in browserWindow.tabs) {
+    updateBadgeForTab(browserWindow.tabs[i].id, count);
+  }
+}
+
+// Event listeners to track window/tab lifecycle
+chrome.windows.onCreated.addListener((window) => {
+  onWindowCreated(window).catch(console.error);
+}, { windowTypes: ['normal'] });
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  onWindowRemoved(windowId).catch(console.error);
+}, { windowTypes: ['normal'] });
+
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  onWindowFocusChanged(windowId).catch(console.error);
+}, { windowTypes: ['normal'] });
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  onTabUpdated(tabId, changeInfo, tab).catch(console.error);
+});
+
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  onTabRemoved(tabId, removeInfo).catch(console.error);
+});
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  onTabActivated(activeInfo.tabId, activeInfo.windowId);
+});
+
+chrome.tabs.onDetached.addListener((tabId, detachedInfo) => {
+  onTabDetached(tabId, detachedInfo);
+});
+
+chrome.tabs.onAttached.addListener((tabId, attachedInfo) => {
+  onTabAttached(tabId, attachedInfo);
 });
 
 // initialize on startup

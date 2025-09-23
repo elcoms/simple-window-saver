@@ -21,10 +21,16 @@ async function onTabChanged(tabId, windowId) {
       }
     }
 
+    // update the changed tab if possible
+    const count = name ? savedWindows[name].tabs.length.toString() : "";
+    if (tabId) {
+      updateBadgeForTab(tabId, count);
+    }
+
+    // update the current focused tab if possible
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tab) => {
-      if (tabId || tab[0].id != tabId) {
-        const count = savedWindows[name].tabs.length.toString();
-        updateBadgeForTab(tab[0].id, count);
+      if (tab[0].id != tabId) {
+        if (tab[0].id) updateBadgeForTab(tab[0].id, count);
       }
     });
   });
@@ -41,7 +47,6 @@ async function onTabUpdated(tabId, changeInfo, tab) {
 async function onTabRemoved(tabId, removeInfo) {
   // skip if tab is closed with window
   if (removeInfo.isWindowClosing) return;
-
   onTabChanged(tabId, removeInfo.windowId);
 }
 
@@ -53,9 +58,38 @@ async function onTabActivated(tabId, windowId) {
   }
 }
 
+async function onTabDetached(tabId, detachedInfo) {
+  const oldWindowId = detachedInfo.oldWindowId;
+  await onTabChanged(tabId, oldWindowId);
+  try {
+    updateBadgeForTab(tabId, "");
+    updateBadgeForWindow(getSavedWindowFromId(oldWindowId));
+  } catch (e) {
+    console.log("onTabDetached error:" + e);
+  }
+}
+
+async function onTabAttached(tabId, attachedInfo) {
+  const newWindowId = attachedInfo.newWindowId;
+
+  try {
+    onTabChanged(tabId, newWindowId);
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+// Update badges for new window
+async function onWindowCreated(browserWindow) {
+  if (!windowIdToName[browserWindow.id]) return;
+  updateBadgeForWindow(browserWindow);
+}
+
 // Update internal mapping when a window is removed
 async function onWindowRemoved(windowId) {
+  console.log("Window removed");
   const name = windowIdToName[windowId];
+
   if (name && savedWindows[name]) {
     // mark as closed: keep the savedWindow but clear id
     savedWindows[name].id = undefined;
@@ -71,44 +105,6 @@ async function onWindowFocusChanged(windowId) {
     const s = savedWindows[name];
     s.focused = (s.id === windowId);
   }
-  updateBadgeForWindow(savedWindows[windowIdToName[windowId]]);
+  updateBadgeForWindow(getSavedWindowFromId(windowId));
   await setAllStorage();
 }
-
-// Simple badge update stub (MV3 badges are only on action)
-async function updateBadgeForTab(tabId, count) {
-  try {
-    chrome.action.setBadgeText({ tabId, text: count });
-    chrome.action.setBadgeBackgroundColor({ color: 'green' });
-  } catch (e) { console.log(e); }
-}
-
-async function updateBadgeForWindow(window) {
-  try {
-    const count = window.tabs.length.toString();
-    for (let i in window.tabs) {
-      updateBadgeForTab(window.tabs[i].id, count);
-    }
-  } catch (e) { console.log(e); }
-}
-
-// Event listeners to track window/tab lifecycle
-chrome.windows.onRemoved.addListener((windowId) => {
-  onWindowRemoved(windowId).catch(console.error);
-});
-
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  onWindowFocusChanged(windowId).catch(console.error);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  onTabUpdated(tabId, changeInfo, tab).catch(console.error);
-});
-
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  onTabRemoved(tabId, removeInfo).catch(console.error);
-});
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  onTabActivated(activeInfo.tabId, activeInfo.windowId);
-});
