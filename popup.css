@@ -23,9 +23,15 @@ li, #form, #incognitoMsg, #footer {
   display: none;
 }
 
+#savedWindowList {
+  display: inline-block;
+  width: 100%;
+}
+
 /* LIST */
 
 li {
+  display: flex;
   list-style: none;
   border-radius: 10px;
   margin: 10px 5px;
@@ -42,6 +48,7 @@ li:hover > .delete {
 
 .text {
   display: inline;
+  margin-right: 10px;
 }
 
 .text:hover {
@@ -68,8 +75,7 @@ li:hover > .delete {
 /* DELETE */
 
 .delete {
-  margin-left: 20px;
-  float: right;
+  margin-left: auto;
   display: inline;
   visibility: hidden;
   color: white;
@@ -111,8 +117,7 @@ li:hover > .delete {
 .undo {
   display: none;
   color: blue;
-  float: right;
-  margin-left: 20px;
+  margin-left: auto;
 }
 
 .undo:hover  {
