@@ -87,7 +87,6 @@ async function onWindowCreated(browserWindow) {
 
 // Update internal mapping when a window is removed
 async function onWindowRemoved(windowId) {
-  console.log("Window removed");
   const name = windowIdToName[windowId];
 
   if (name && savedWindows[name]) {

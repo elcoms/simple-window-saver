@@ -88,6 +88,7 @@ async function initialize() {
     
     // all windows start as closed until verified
     closedWindows[name] = savedWindow;
+    savedWindow.id = undefined;
 
     // let's check if it's one of the open windows and map their IDs to their names
     for (const bw of browserWindows) {
@@ -134,9 +135,6 @@ async function syncNamesToWindows() {
 // match those of the saved window, we consider them equal
 // even if the new window has more tabs
 function windowsAreEqual(browserWindow, savedWindow) {
-  if (browserWindow.incognito) {
-    return false;
-  }
   if (!browserWindow.tabs || !savedWindow.tabs) {
     return false;
   }
@@ -154,6 +152,7 @@ function windowsAreEqual(browserWindow, savedWindow) {
 async function markWindowAsOpen(browserWindow, displayName) {
   delete closedWindows[displayName];
   windowIdToName[browserWindow.id] = displayName;
+  savedWindows[displayName].id = browserWindow.id;
   updateBadgeForWindow(browserWindow);
 }
 

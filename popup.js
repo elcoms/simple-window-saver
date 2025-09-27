@@ -144,8 +144,8 @@ async function appendWindowToList(displayName, currentWindowName) {
     li.className = "current";
     text = "This is <b>" + text + "<\/b>.";
   } 
-  // closed saved window - open
-  else if (savedWindow.id) {
+  // closed saved window - focus
+  else if (savedWindow.id && state.windowIdToName[savedWindow.id]) {
     li.className = "open";
     li.addEventListener('click', (e) => {
       e.preventDefault();
@@ -153,7 +153,7 @@ async function appendWindowToList(displayName, currentWindowName) {
       chrome.windows.update(savedWindow.id, {focused: true});
     });
   } 
-  // opened saved window - focus
+  // opened saved window - open
   else {
     li.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'openWindow', name: displayName }, (resp) => { refresh(); });
