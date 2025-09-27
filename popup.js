@@ -30,9 +30,10 @@ async function refresh() {
     
     // display form if current window is not saved or in incognito
     if (!currentWindowName) {
-      if (window.incognito)
+      if (currentWindow.incognito)
         $('incognitoMsg').style.display = "block";
-      else {
+
+      {
         nameInput.value = state.DEFAULT_NAME;
         formEl.style.display = "block";
         nameInput.focus();
