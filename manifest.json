@@ -1,7 +1,7 @@
 {
   "name": "Simple Window Saver Restored",
   "version": "2.0",
-  "description": "Save and restore windows. *Does not work with Tab Groups.",
+  "description": "Save and restore windows. *Tab Groups and Incognito are NOT supported!",
   "manifest_version": 3,
   "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
   "icons": { "16": "icon16.png",
@@ -18,10 +18,6 @@
   "background": {
 		"service_worker": "service-worker.js"
 	},
-  "content_scripts": [{
-    "matches": ["<all_urls>"],
-    "js": ["eventHandlers.js"]
-  }],
   "permissions": [
     "tabs",
     "storage"
