@@ -29,7 +29,7 @@ let closedWindows = {}; // name -> savedWindow for closed windows
 
 // Saved Windows that got deleted this session
 let undoWindows = new Object();
-;
+
 // Custom SavedWindow object to save only what we need
 function SavedWindow(browserWindow) {
   this.id = browserWindow.id;
@@ -135,6 +135,7 @@ async function syncNamesToWindows() {
 // match those of the saved window, we consider them equal
 // even if the new window has more tabs
 function windowsAreEqual(browserWindow, savedWindow) {
+  console.log("check");
   if (!browserWindow.tabs || !savedWindow.tabs) {
     return false;
   }
@@ -142,10 +143,14 @@ function windowsAreEqual(browserWindow, savedWindow) {
     return false;
   }
   for (var i in savedWindow.tabs) {
+    console.log(browserWindow.tabs[i].url);
+    console.log(savedWindow.tabs[i].url);
     if (browserWindow.tabs[i].url != savedWindow.tabs[i].url) {
+      console.log("false");
       return false;
     }
   }
+  console.log("true");
   return true;
 }
 

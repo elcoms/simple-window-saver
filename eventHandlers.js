@@ -14,25 +14,18 @@ async function onTabChanged(tabId, windowId) {
       for (let i in closedWindows) {
         var savedWindow = closedWindows[i];
         if (windowsAreEqual(browserWindow, savedWindow)) {
-          var name = savedWindow.name;
+          name = savedWindow.name;
           savedWindows[name] = new SavedWindow(browserWindow);
           markWindowAsOpen(browserWindow, name);
         }
       }
     }
 
-    // update the changed tab if possible
+    // update the changed tab if window is saved
     const count = name ? savedWindows[name].tabs.length.toString() : "";
-    if (tabId) {
+    if (tabId && name) {
       updateBadgeForTab(tabId, count);
     }
-
-    // update the current focused tab if possible
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tab) => {
-      if (tab[0].id != tabId) {
-        if (tab[0].id) updateBadgeForTab(tab[0].id, count);
-      }
-    });
   });
 
 
@@ -41,6 +34,7 @@ async function onTabChanged(tabId, windowId) {
 
 // When tabs are updated or created/moved, keep savedWindows in sync if they correspond
 async function onTabUpdated(tabId, changeInfo, tab) {
+  console.log("onTabUpdated");
   onTabChanged(tabId, tab.windowId);
 }
 
@@ -52,6 +46,7 @@ async function onTabRemoved(tabId, removeInfo) {
 
 async function onTabActivated(tabId, windowId) {
   const name = windowIdToName[windowId];
+  console.log("onTabActivated");
   if (name) {
     const count = savedWindows[name].tabs.length.toString();
     updateBadgeForTab(tabId, count);
@@ -60,6 +55,7 @@ async function onTabActivated(tabId, windowId) {
 
 async function onTabDetached(tabId, detachedInfo) {
   const oldWindowId = detachedInfo.oldWindowId;
+  console.log("onTabDetached");
   await onTabChanged(tabId, oldWindowId);
   try {
     updateBadgeForTab(tabId, "");
@@ -81,7 +77,6 @@ async function onTabAttached(tabId, attachedInfo) {
 
 // Update badges for new window
 async function onWindowCreated(browserWindow) {
-  if (!windowIdToName[browserWindow.id]) return;
   updateBadgeForWindow(browserWindow);
 }
 
