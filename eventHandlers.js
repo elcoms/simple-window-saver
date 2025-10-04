@@ -11,12 +11,12 @@ async function onTabChanged(tabId, windowId) {
       savedWindows[name] = new SavedWindow(browserWindow);
     } else {
       // otherwise we double check that it's not saved
-      for (let i in closedWindows) {
-        var savedWindow = closedWindows[i];
+      for (let key_name in closedWindows) {
+        var savedWindow = closedWindows[key_name];
         if (windowsAreEqual(browserWindow, savedWindow)) {
-          name = savedWindow.name;
-          savedWindows[name] = new SavedWindow(browserWindow);
-          markWindowAsOpen(browserWindow, name);
+          savedWindows[key_name] = new SavedWindow(browserWindow);
+          markWindowAsOpen(browserWindow, key_name);
+          name = key_name;
         }
       }
     }
