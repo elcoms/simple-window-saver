@@ -3,7 +3,7 @@
 // While more wasteful, this makes the code much more robust.
 
 // updates a window in response to a tab event
-async function onTabChanged(tabId, windowId) {
+function onTabChanged(tabId, windowId) {
   chrome.windows.get(windowId, { populate: true }, function (browserWindow) {
     // if the window is saved, we update it
     var name = windowIdToName[windowId];
@@ -26,10 +26,20 @@ async function onTabChanged(tabId, windowId) {
     if (tabId && name) {
       updateBadgeForTab(tabId, count);
     }
+    
+    setAllStorage();
+
+    // update for current focused tab
+    chrome.tabs.query({
+      active: true,
+      windowId: windowId
+    }, (tabs) => {
+      if (tabs.length > 0 && tabs[0].id != tabId) {
+        const savedWindow = getSavedWindowFromId(windowId);
+        updateBadgeForTab(tabs[0].id, savedWindow.tabs.length.toString());
+      }
+    });
   });
-
-
-  await setAllStorage();
 }
 
 // When tabs are updated or created/moved, keep savedWindows in sync if they correspond

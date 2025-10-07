@@ -100,7 +100,6 @@ async function initialize() {
     }
   }
 
-  // updateBadgeForCurrentWindow();
   await setAllStorage();
   console.log("Service worker initialized. Saved windows:", savedWindowNames.length);
 }
