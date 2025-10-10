@@ -141,7 +141,10 @@ function windowsAreEqual(browserWindow, savedWindow) {
     return false;
   }
   for (var i in savedWindow.tabs) {
-    if (browserWindow.tabs[i].url != savedWindow.tabs[i].url) {
+    const isMatchingURL = browserWindow.tabs[i].url == savedWindow.tabs[i].url;
+    const isMatchingID = browserWindow.tabs[i].id == savedWindow.tabs[i].id;
+    // Either ID or URL will confirm if it was the same tab
+    if (!(isMatchingURL || isMatchingID)) {
       return false;
     }
   }
