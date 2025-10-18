@@ -75,9 +75,6 @@ async function initialize() {
   if (typeof savedWindows !== 'object') savedWindows = {};
   if (typeof closedWindows !== 'object') closedWindows = {};
 
-  // Clear windows IDs from previous session
-  windowIdToName = {};
-
   // Clean up orphan names and windows
   syncNamesToWindows();
 
@@ -85,18 +82,21 @@ async function initialize() {
   for (let i in savedWindowNames) {
     let name = savedWindowNames[i];
     let savedWindow = savedWindows[name];
-    
-    // all windows start as closed until verified
-    closedWindows[name] = savedWindow;
-    savedWindow.id = undefined;
+    let isWindowOpened = false;
 
     // let's check if it's one of the open windows and map their IDs to their names
     for (const bw of browserWindows) {
       if (windowsAreEqual(bw, savedWindow)) {
         markWindowAsOpen(bw, name);
         savedWindow = new SavedWindow(bw);
+        isWindowOpened = true;
         break; // ignore duplicate windows with the same tabs
       }
+    }
+    // clear saved window id if no longer opened
+    if (!isWindowOpened) {
+      closedWindows[name] = savedWindow;
+      savedWindow.id = undefined;
     }
   }
 
@@ -134,6 +134,9 @@ async function syncNamesToWindows() {
 // match those of the saved window, we consider them equal
 // even if the new window has more tabs
 function windowsAreEqual(browserWindow, savedWindow) {
+  // skip check if ID is equal
+  if(browserWindow.id == savedWindow.id) return true;
+
   if (!browserWindow.tabs || !savedWindow.tabs) {
     return false;
   }
