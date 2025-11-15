@@ -341,6 +341,13 @@ async function updateBadgeForWindow(browserWindow) {
   }
 }
 
+async function backupSavedWindows() {
+  // Merge backups with latest savedWindows. Never remove any savedWindows
+  const chromeStorage = await chrome.storage.local.get('backup');
+  const updatedBackup = Object.keys(chromeStorage).length == 0 ? {...savedWindows} : { ...chromeStorage.backup, ...savedWindows };
+  await chrome.storage.local.set({ backup: updatedBackup });
+}
+
 // Event listeners to track window/tab lifecycle
 chrome.windows.onCreated.addListener((window) => {
   onWindowCreated(window).catch(console.error);
@@ -352,6 +359,7 @@ chrome.windows.onRemoved.addListener((windowId) => {
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
   onWindowFocusChanged(windowId).catch(console.error);
+  backupSavedWindows();
 }, { windowTypes: ['normal'] });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
