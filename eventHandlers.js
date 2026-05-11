@@ -5,6 +5,9 @@
 // updates a window in response to a tab event
 function onTabChanged(tabId, windowId) {
   chrome.windows.get(windowId, { populate: true }, function (browserWindow) {
+    // exit no tabs are in the window anymore, happens when window is closing
+    if (browserWindow.tabs.length == 0) return;
+
     // if the window is saved, we update it
     var name = windowIdToName[windowId];
     if (name) {
@@ -65,7 +68,6 @@ async function onTabActivated(tabId, windowId) {
 
 async function onTabDetached(tabId, detachedInfo) {
   const oldWindowId = detachedInfo.oldWindowId;
-  console.log("onTabDetached");
   await onTabChanged(tabId, oldWindowId);
   try {
     updateBadgeForTab(tabId, "");
@@ -93,7 +95,7 @@ async function onWindowCreated(browserWindow) {
 // Update internal mapping when a window is removed
 async function onWindowRemoved(windowId) {
   const name = windowIdToName[windowId];
-
+  
   if (name && savedWindows[name]) {
     // mark as closed: keep the savedWindow but clear id
     savedWindows[name].id = undefined;
